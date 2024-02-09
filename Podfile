@@ -13,6 +13,7 @@ target 'seed_v0.4' do
 	pod 'Firebase/Auth'
 	pod 'SDWebImage', '~> 5.0'
 	pod 'ActiveLabel'
+	pod 'SDWebImageSwiftUI'
 
   target 'seed_v0.4Tests' do
     inherit! :search_paths

@@ -11,27 +11,55 @@ typealias DatabaseCompletion = ((Error?, DatabaseReference) -> Void)
 
 struct UserService {
     static let shared = UserService()
-    
-    func fetchUser(uid: String, completion: @escaping(User) -> Void) {
-        REF_USERS.child(uid).observeSingleEvent(of: .value) { snapshot in
-            guard let dictionary = snapshot.value as? [String: AnyObject] else { return }
-                        
-            let user = User(uid: uid, dictionary: dictionary)
-            completion(user)
+
+    func fetchUser(uid: String, completion: @escaping (User) -> Void) {
+          REF_USERS.child(uid).observeSingleEvent(of: .value) { snapshot in
+              // DEBUG: Print raw JSON data
+              print("Raw JSON data: \(snapshot.value)")
+
+              guard let dictionary = snapshot.value as? [String: AnyObject],
+                    let data = try? JSONSerialization.data(withJSONObject: dictionary) else {
+                  // DEBUG: Error in forming dictionary or data object
+                  print("Error in forming dictionary or data object")
+                  return
+              }
+              
+              // DEBUG: Print the dictionary and data
+              print("Dictionary: \(dictionary)")
+              print("Data for JSON decoding: \(data)")
+              
+              do {
+                  // Decode the JSON data into a User object
+                  let user = try JSONDecoder().decode(User.self, from: data)
+                  // DEBUG: Print decoded User
+                  print("Decoded User: \(user)")
+                  completion(user)
+              } catch {
+                  // DEBUG: Print error in decoding
+                  print("Error decoding User: \(error.localizedDescription)")
+              }
         }
     }
     
-    func fetchUsers(completion: @escaping([User]) -> Void) {
+    func fetchUsers(completion: @escaping ([User]) -> Void) {
         var users = [User]()
         REF_USERS.observe(.childAdded) { snapshot in
             let uid = snapshot.key
-            guard let dictionary = snapshot.value as? [String: AnyObject] else { return }
-            let user = User(uid: uid, dictionary: dictionary)
-            users.append(user)
-            completion(users)
+            guard let dictionary = snapshot.value as? [String: AnyObject],
+                  let data = try? JSONSerialization.data(withJSONObject: dictionary) else { return }
+            
+            do {
+                // Decode the JSON data into a User object
+                let user = try JSONDecoder().decode(User.self, from: data)
+                users.append(user)
+                completion(users)
+            } catch {
+                print("Error decoding User: \(error)")
+            }
         }
     }
-    
+}
+
     func followUser(uid: String, completion: @escaping(DatabaseCompletion)) {
         guard let currentUid = Auth.auth().currentUser?.uid else { return }
         
@@ -56,15 +84,15 @@ struct UserService {
         }
     }
     
-    func fetchUserStats(uid: String, completion: @escaping(UserRelationStats) -> Void) {
+    func fetchUserStats(uid: String, completion: @escaping(Int) -> Void) {
         REF_USER_FOLLOWERS.child(uid).observeSingleEvent(of: .value) { snapshot in
             let followers = snapshot.children.allObjects.count
             
             REF_USER_FOLLOWING.child(uid).observeSingleEvent(of: .value) { snapshot in
                 let following = snapshot.children.allObjects.count
                 
-                let stats = UserRelationStats(followers: followers, following: following)
-                completion(stats)
+                //let stats = UserRelationStats(friends: friends)
+                //completion(stats)
             }
         }
     }
@@ -90,17 +118,18 @@ struct UserService {
     func saveUserData(user: User, completion: @escaping(DatabaseCompletion)) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         
-        let values = ["fullname": user.fullname,
+        let values = ["firstname": user.firstName,
+                      "lastname": user.lastName,
                       "username": user.username,
                       "bio": user.bio ?? ""]
         
         REF_USERS.child(uid).updateChildValues(values, withCompletionBlock: completion)
     }
     
-    func fetchUser(withUsername username: String, completion: @escaping(User) -> Void) {
-        REF_USER_USERNAMES.child(username).observeSingleEvent(of: .value) { snapshot in
-            guard let uid = snapshot.value as? String else { return }
-            self.fetchUser(uid: uid, completion: completion)
-        }
-    }
-}
+//    func fetchUser(withUsername username: String, completion: @escaping(User) -> Void) {
+//        REF_USER_USERNAMES.child(username).observeSingleEvent(of: .value) { snapshot in
+//            guard let uid = snapshot.value as? String else { return }
+//            self.fetchUser(uid: uid, completion: completion)
+//        }
+
+
