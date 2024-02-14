@@ -30,19 +30,20 @@ struct CreateUpcomingGoalsView: View {
           NavigationView {
               Form {
                   Section(header: Text("Create Your Goal")) {
-                      TextField("Caption", text: $caption)
-                      TextField("Category", text: $category)
-                      
+                      TextField("Goal Caption", text: $caption)
+                      Picker("Category", selection: $category) {
+                          ForEach(GoalType.allCases, id: \.self) { category in
+                              Text(category.rawValue.capitalized).tag(category)
+                          }
+                      }
                       Picker("Tracking Period", selection: $trackingPeriod) {
                           ForEach(TrackingPeriod.allCases, id: \.self) { period in
-                              Text(period.rawValue).tag(period.rawValue)
+                              Text(period.rawValue.capitalized).tag(period.rawValue)
                           }
                       }
 
                       TextField("End Goal", text: $endGoal)
-                          .keyboardType(.decimalPad)
                       TextField("Current Progress", text: $currentProgress)
-                          .keyboardType(.decimalPad)
 
                       DatePicker("Complete By", selection: $completeBy, displayedComponents: .date)
                           .environment(\.calendar, customCalendar)
