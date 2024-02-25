@@ -27,15 +27,17 @@ struct PostDetailView: View {
                     HStack(spacing: globalPadding) {
                         Button(action: {
                             let postIdString = post.id.uuidString
+                            post.isLikedByCurrentUser.toggle() // Immediate UI update
                             if post.isLikedByCurrentUser {
-                                viewModel.unlikePost(postId: postIdString)
-                            } else {
                                 viewModel.likePost(postId: postIdString)
+                            } else {
+                                viewModel.unlikePost(postId: postIdString)
                             }
                         }) {
                             Image(systemName: post.isLikedByCurrentUser ? "heart.fill" : "heart")
-                                .foregroundColor(post.isLikedByCurrentUser ? .red : .gray) // Red when liked
+                                .foregroundColor(post.isLikedByCurrentUser ? .red : .gray)
                         }
+
                         .foregroundColor(post.isLikedByCurrentUser ? .red : .gray) // Red when liked
                         Text("\(post.likes)")
                         // Adjust this button to focus on the comment text field
@@ -71,6 +73,12 @@ struct PostDetailView: View {
                 }
                 .padding(.top, globalPadding)
             }
+            .gesture(
+                DragGesture().onChanged { _ in
+                    // Dismiss the keyboard when scrolling starts
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
+            )
             // Comment input area
             HStack {
                 TextField("Write a comment...", text: $newCommentText)
@@ -85,39 +93,43 @@ struct PostDetailView: View {
             }
             .padding(.horizontal, globalPadding)
         }
-            //.padding(.bottom, keyboardHeight + globalPadding) // Add padding at the bottom equal to the keyboard's height
-            //.animation(.easeOut(duration: 0.16)) // Smooth transition when keyboard appears/disappears
-            //.onAppear {
-                // Set up notifications for when the keyboard shows/hides
-//                NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { (notification) in
-//                    if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
-//                        keyboardHeight = keyboardSize.height
-//                    }
-//                }
-                
-//                NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { (notification) in
-//                    keyboardHeight = 0
-
+        //.padding(.bottom, keyboardHeight + globalPadding) // Add padding at the bottom equal to the keyboard's height
+        //.animation(.easeOut(duration: 0.16)) // Smooth transition when keyboard appears/disappears
+        //.onAppear {
+        // Set up notifications for when the keyboard shows/hides
+        //                NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { (notification) in
+        //                    if let keyboardSize = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue {
+        //                        keyboardHeight = keyboardSize.height
+        //                    }
+        //                }
+        
+        //                NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { (notification) in
+        //                    keyboardHeight = 0
+        
         //}
         .navigationBarTitle("Post Details", displayMode: .inline)
         // .padding(.bottom, keyboardHeight) // This will move the VStack up when the keyboard appears
-         .animation(.easeOut(duration: 0.16))
-         .onDisappear{
-             // Post a notification when navigating back to the feed view
-                        NotificationCenter.default.post(name: NSNotification.Name("RefreshFeedNotification"), object: nil)
-         }
+        .animation(.easeOut(duration: 0.16))
+        .onDisappear{
+            // Post a notification when navigating back to the feed view
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshFeedNotification"), object: nil)
+        }
     }
-
+    
     
     private func postComment() {
         guard !newCommentText.isEmpty, let authorId = viewModel.currentUserId else { return }
         
         let newComment = Comment(id: UUID().uuidString, text: newCommentText, authorId: authorId, timestamp: Date())
-        
-        viewModel.addComment(to: post.id.uuidString, comment: newComment)
-        
-        newCommentText = ""
+        viewModel.addComment(to: post.id.uuidString, comment: newComment) {
+            // Clear the comment field
+            self.newCommentText = ""
+            
+            // No need to manually update the comments here as the viewModel's completion handler should take care of it
+            // Ensure your PostDetailView is observing the relevant post object for changes
+        }
     }
+}
 
 
     struct KeyboardResponder {
@@ -146,7 +158,7 @@ struct PostDetailView: View {
             }
         }
     }
-}
+
 
 struct CommentView: View {
     var comment: Comment
@@ -202,6 +214,14 @@ struct CommentView: View {
     }
 }
 
+extension Comment {
+    init(id: String, text: String, authorId: String, timestamp: Date) {
+        self.id = id
+        self.text = text
+        self.authorId = authorId
+        self.timestamp = timestamp
+    }
+}
 
 struct ProfileImageView: View {
     let imageUrl: URL

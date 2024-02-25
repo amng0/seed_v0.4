@@ -10,7 +10,7 @@ import Firebase
 
 struct CalendarView: View {
     @State private var selectedDate = Date()
-    private let calendar = Calendar.current
+    //private let calendar = Calendar.current
     var goalPosts: [GoalPost]?  // Array of GoalPost objects
     @ObservedObject var viewModel = UpcomingGoalsViewModel()
     
@@ -92,40 +92,60 @@ struct CalendarView: View {
     }
 
     var dateGrid: some View {
-        let daysInMonth = daysInMonth(date: selectedDate)
+        let daysInMonth = self.daysInMonth(date: selectedDate)
         let firstDayOfMonth = self.firstDayOfMonth(date: selectedDate)
-        let startingSpaces = weekday(from: firstDayOfMonth)
-        
+        let weekdayOfFirstDay = self.weekday(from: firstDayOfMonth)
+        let startingSpaces = weekday(from: firstDayOfMonth) - calendar.firstWeekday + 1
+
         return LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
             ForEach(0..<startingSpaces, id: \.self) { _ in
-                Text("")
+                Text("") // Empty cells for alignment
+                    .frame(width: 30, height: 30)
             }
             ForEach(1...daysInMonth, id: \.self) { day in
-                let date = calendar.date(byAdding: .day, value: day - 1, to: firstDayOfMonth)!
+                let dayDate = self.calendar.date(byAdding: .day, value: day - 1, to: firstDayOfMonth)!
                 Text("\(day)")
                     .frame(width: 30, height: 30)
-                    .background(self.isGoalPostDate(date: date) ? Color.green : (isToday(day: day) ? Color.blue : Color.clear))
+                    .background(self.isGoalPostDate(date: dayDate) ? Color.green.opacity(0.5) : (self.isToday(date: dayDate) ? Color.blue.opacity(0.5) : Color.clear))
                     .cornerRadius(15)
-                    .foregroundColor(self.isGoalPostDate(date: date) || isToday(day: day) ? .white : .black)
+                    .foregroundColor(self.isGoalPostDate(date: dayDate) || self.isToday(date: dayDate) ? .white : .primary)
                     .onTapGesture {
-                        self.selectedDate = date
+                        self.selectedDate = dayDate
                     }
             }
         }
     }
 
+
+    
+    private var calendar: Calendar {
+        var cal = Calendar.current
+        cal.firstWeekday = 1 // Sunday
+        return cal
+    }
+
+
+
+    
+    func isToday(date: Date) -> Bool {
+        calendar.isDateInToday(date)
+    }
+
+
+
     func goalPostCaptionCard(_ goalPost: GoalPost) -> some View {
         Text(goalPost.caption)
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.gray.opacity(0.1))
-            .foregroundColor(Color.black)
+            .background(Color(.systemBackground)) // Use system background color
+            .foregroundColor(Color.primary) // Adapt text color for Dark Mode
             .cornerRadius(10)
             .shadow(radius: 5)
             .font(.headline)
             .padding(.horizontal)
             .padding(.top, 10)
     }
+
 
     func isGoalPostDate(date: Date) -> Bool {
         viewModel.fetchedGoalPosts.contains { goalPost in
@@ -160,22 +180,28 @@ struct CalendarView: View {
         return range.count
     }
 
+
     func firstDayOfMonth(date: Date) -> Date {
         let components = calendar.dateComponents([.year, .month], from: date)
         return calendar.date(from: components)!
     }
 
+
     func weekday(from date: Date) -> Int {
-           let weekday = calendar.component(.weekday, from: date)
-           return weekday - 1 // Adjust for your calendar's needs (e.g., start on Sunday vs. Monday)
-       }
+        let weekday = calendar.component(.weekday, from: date)
+        // Sunday is 1, so no need to adjust for a 0 index array.
+        return weekday - calendar.firstWeekday
+    }
+
+
+
 
        func isToday(day: Int) -> Bool {
            calendar.isDate(selectedDate, inSameDayAs: calendar.date(byAdding: .day, value: day - 1, to: firstDayOfMonth(date: selectedDate))!)
        }
 
        var daysOfWeek: [String] {
-           ["Mon", "Sun", "Tue", "Wed", "Thu", "Fri", "Sat"]
+           ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
        }
    }
 

@@ -18,8 +18,7 @@ class FeedViewModel: ObservableObject {
     var currentUserId: String? {
         Auth.auth().currentUser?.uid
     }
-    
-    
+
     func setupAuth(feedPost: FeedPost) {
         // safely unwrap userID using firebase Auth
         guard let userID = Auth.auth().currentUser?.uid else {
@@ -46,7 +45,7 @@ class FeedViewModel: ObservableObject {
         
         if let data = data, let jsonDict = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
             
-            let feedPostRef = firebaseRef.child("users").child(uid).child("feedPosts").child("\(feedPost.id)")
+            let feedPostRef = firebaseRef.child("feedPosts2").child("\(feedPost.id)")
             
             feedPostRef.updateChildValues(jsonDict) { (error, ref) in
                 if let error = error {
@@ -62,149 +61,118 @@ class FeedViewModel: ObservableObject {
             return
         }
         
-        let ref = Database.database().reference().child("users").child(userID).child("feedPosts")
+        let ref = Database.database().reference().child("users").child(userID).child("goalPosts")
+        print("DEBUG: Fetching feed posts from Firebase path: \(ref)")
+        
         ref.observeSingleEvent(of: .value) { [weak self] snapshot in
-            guard let self = self, snapshot.exists(), let feedPostDict = snapshot.value as? [String: Any] else {
+            guard let self = self else { return }
+            
+            if !snapshot.exists() {
+                print("DEBUG: Snapshot does not exist")
                 DispatchQueue.main.async {
-                    completion() // Call completion if no posts or error
+                    self.feedPosts = []
+                    completion()
                 }
                 return
             }
             
-            var tempFeedPosts = [FeedPost]()
-            let group = DispatchGroup()
-            
-            for (postId, postData) in feedPostDict {
-                if let postDataDict = postData as? [String: Any], let postDataJson = try? JSONSerialization.data(withJSONObject: postDataDict), var feedPost = try? JSONDecoder().decode(FeedPost.self, from: postDataJson) {
-                    
-                    group.enter()
-                    let likeRef = Database.database().reference().child("posts").child(postId).child("likes").child(userID)
-                    likeRef.observeSingleEvent(of: .value, with: { snapshot in
-                        feedPost.isLikedByCurrentUser = snapshot.exists() // Set like status
-                        tempFeedPosts.append(feedPost)
-                        group.leave()
-                    })
+            guard let feedPostDict = snapshot.value as? [String: Any] else {
+                print("DEBUG: Snapshot value is not a valid dictionary")
+                DispatchQueue.main.async {
+                    completion() // Also call completion here if the data is not in the expected format
                 }
+                return
             }
             
-            group.notify(queue: .main) {
-                self.feedPosts = tempFeedPosts.sorted { $0.timestamp > $1.timestamp }
-                completion()
+            print("DEBUG: Retrieved feed posts dictionary: \(feedPostDict)")
+            
+            do {
+                var tempFeedPosts = [FeedPost]()
+                for (postId, postData) in feedPostDict {
+                    print("DEBUG: Processing post with ID: \(postId)")
+                    if let postDataDict = postData as? [String: Any],
+                       let postDataJson = try? JSONSerialization.data(withJSONObject: postDataDict) {
+                        do {
+                            let feedPost = try JSONDecoder().decode(FeedPost.self, from: postDataJson)
+                            tempFeedPosts.append(feedPost)
+                        } catch {
+                            print("DEBUG: Error decoding post \(postId): \(error)")
+                        }
+                    } else {
+                        print("DEBUG: Invalid data format for post \(postId)")
+                    }
+                }
+                DispatchQueue.main.async {
+                    self.feedPosts = tempFeedPosts.sorted { $0.timestamp > $1.timestamp }
+                    completion()
+                }
+            } catch {
+                print("DEBUG: Error decoding feed posts: \(error)")
             }
         }
     }
 
-    
-//    func fetchFeedPosts(completion: @escaping () -> Void) {
-//        guard let userID = Auth.auth().currentUser?.uid else {
-//            print("DEBUG: User ID is nil")
-//            return
-//        }
-//
-//        let ref = Database.database().reference().child("users").child(userID).child("feedPosts")
-//        print("DEBUG: Fetching feed posts from Firebase path: \(ref)")
-//
-//        ref.observeSingleEvent(of: .value) { [weak self] snapshot in
-//            guard let self = self else { return }
-//
-//            if !snapshot.exists() {
-//                print("DEBUG: Snapshot does not exist")
-//                DispatchQueue.main.async {
-//                    self.feedPosts = []
-//                    completion()
-//                }
-//                return
-//            }
-//
-//            guard let feedPostDict = snapshot.value as? [String: Any] else {
-//                print("DEBUG: Snapshot value is not a valid dictionary")
-//                DispatchQueue.main.async {
-//                    completion() // Also call completion here if the data is not in the expected format
-//                }
-//                return
-//            }
-//
-//            print("DEBUG: Retrieved feed posts dictionary: \(feedPostDict)")
-//
-//            do {
-//                var tempFeedPosts = [FeedPost]()
-//                for (postId, postData) in feedPostDict {
-//                    print("DEBUG: Processing post with ID: \(postId)")
-//                    if let postDataDict = postData as? [String: Any],
-//                       let postDataJson = try? JSONSerialization.data(withJSONObject: postDataDict) {
-//                        do {
-//                            let feedPost = try JSONDecoder().decode(FeedPost.self, from: postDataJson)
-//                            tempFeedPosts.append(feedPost)
-//                        } catch {
-//                            print("DEBUG: Error decoding post \(postId): \(error)")
-//                        }
-//                    } else {
-//                        print("DEBUG: Invalid data format for post \(postId)")
-//                    }
-//                }
-//                DispatchQueue.main.async {
-//                    self.feedPosts = tempFeedPosts.sorted { $0.timestamp > $1.timestamp }
-//                    completion()
-//                }
-//            } catch {
-//                print("DEBUG: Error decoding feed posts: \(error)")
-//            }
-//        }
-//    }
-    
     func fetchFeedPostsFromFollowingUsers(completion: @escaping () -> Void) {
         guard let currentUserUID = Auth.auth().currentUser?.uid else {
-            // Handle the case when the current user is not authenticated
             print("DEBUG: Current user is not authenticated.")
             return
         }
-    
-        // Reference to the logged-in user's following node
+
+        print("DEBUG: Fetching feed posts from following users for user \(currentUserUID)")
+
         let loggedInUserFollowingRef = Database.database().reference().child("users").child(currentUserUID).child("following")
 
         loggedInUserFollowingRef.observeSingleEvent(of: .value) { [weak self] snapshot in
             guard let self = self else { return }
 
-            if snapshot.exists() {
-                // Expecting the following node to be a dictionary with UIDs as keys
-                if let followingDict = snapshot.value as? [String: Bool] {
-                    let followingUIDs = followingDict.keys
-                    print("DEBUG: Found following UIDs: \(followingUIDs)")
+            if snapshot.exists(), let followingDict = snapshot.value as? [String: Bool] {
+                let followingUIDs = followingDict.keys
 
-                    // Create a dispatch group to handle multiple asynchronous calls
-                    let dispatchGroup = DispatchGroup()
+                if followingUIDs.isEmpty {
+                    print("DEBUG: The user is not following anyone.")
+                    completion()
+                    return
+                }
 
-                    for followingUID in followingUIDs {
-                        print("DEBUG: Fetching feed posts for user with UID: \(followingUID)")
+                print("DEBUG: Found \(followingUIDs.count) users that the current user is following.")
 
-                        // Enter the dispatch group before making the fetchExternalUserPosts call
-                        dispatchGroup.enter()
+                let dispatchGroup = DispatchGroup()
 
-                        // Fetch feed posts for each user the current user is following
-                        self.fetchExternalUserPosts(userId: followingUID) {
-                            // Leave the dispatch group when the fetchExternalUserPosts call is complete
-                            dispatchGroup.leave()
+                for followingUID in followingUIDs {
+                    print("DEBUG: Fetching posts for user \(followingUID)")
+                    dispatchGroup.enter()
+                    let ref = Database.database().reference().child("users").child(followingUID).child("goalPosts")
+                    ref.observeSingleEvent(of: .value) { snapshot in
+                        if snapshot.exists() {
+                            if let feedPostDict = snapshot.value as? [String: Any] {
+                                print("DEBUG: Found posts for user \(followingUID)")
+                                self.processFeedPosts(feedPostDict: feedPostDict)
+                            } else {
+                                print("DEBUG: Posts for user \(followingUID) are not in the expected format.")
+                            }
+                        } else {
+                            print("DEBUG: No posts found for user \(followingUID)")
                         }
+                        dispatchGroup.leave()
                     }
+                }
 
-                    // Notify when all fetchExternalUserPosts calls are complete
-                    dispatchGroup.notify(queue: .main) {
-                                   // Apply deduplication and sorting after all posts are fetched
-                                   self.feedPosts = self.removeDuplicatesAndSort(posts: self.feedPosts)
-                                   print("DEBUG: All fetchExternalUserPosts calls are complete. Feed posts deduplicated and sorted.")
-                               }
-                } else {
-                    print("DEBUG: Following UIDs not in the expected format.")
+                dispatchGroup.notify(queue: .main) {
+                    print("DEBUG: Finished fetching posts from all following users.")
+                    self.feedPosts = self.removeDuplicatesAndSort(posts: self.feedPosts)
+                    completion()
                 }
             } else {
-                print("DEBUG: No following UIDs found.")
+                print("DEBUG: The 'following' node is empty or does not exist for the current user.")
+                completion()
             }
         }
-        completion()
     }
 
+
+
     func fetchExternalUserPosts(userId: String, completion: @escaping () -> Void) {
-        let ref = Database.database().reference().child("users").child(userId).child("feedPosts")
+        let ref = Database.database().reference().child("users").child(userId).child("feedPosts2")
         print("DEBUG: Fetching feed posts for external user from Firebase path: \(ref)")
 
         ref.observeSingleEvent(of: .value) { [weak self] snapshot in
@@ -229,41 +197,67 @@ class FeedViewModel: ObservableObject {
         }
     }
     
-    private func updateLocalPostLikeStatus(postId: String, liked: Bool) {
-        if let index = feedPosts.firstIndex(where: { $0.id.uuidString == postId }) {
-            DispatchQueue.main.async {
-                self.feedPosts[index].isLikedByCurrentUser = liked
+    func fetchPostsForLoggedInUser(completion: @escaping () -> Void) {
+        guard let currentUserID = Auth.auth().currentUser?.uid else {
+            print("Debug: User not logged in")
+            return
+        }
+        
+        print("Debug: Fetching posts for user ID \(currentUserID)")
+        
+        // Reference to the logged-in user's posts node
+        let userPostsRef = Database.database().reference().child("users").child(currentUserID).child("feedPosts2")
+        
+        userPostsRef.observeSingleEvent(of: .value, with: { [weak self] snapshot in
+            guard let self = self else { return }
+            
+            // Clear existing posts to avoid duplication
+            self.feedPosts.removeAll()
+            
+            if !snapshot.exists() {
+                print("Debug: No posts found for the logged-in user.")
+                DispatchQueue.main.async {
+                    completion()
+                }
+                return
             }
+            
+            guard let postsDict = snapshot.value as? [String: Any] else {
+                print("Debug: Snapshot is not in the expected format.")
+                DispatchQueue.main.async {
+                    completion()
+                }
+                return
+            }
+            
+            print("Debug: Found \(postsDict.count) posts for the logged-in user.")
+            
+            var tempFeedPosts: [FeedPost] = []
+            for (postID, postData) in postsDict {
+                if let postDataDict = postData as? [String: Any],
+                   let postDataJson = try? JSONSerialization.data(withJSONObject: postDataDict),
+                   let feedPost = try? JSONDecoder().decode(FeedPost.self, from: postDataJson) {
+                    tempFeedPosts.append(feedPost)
+                    print("Debug: Successfully decoded post with ID \(postID).")
+                } else {
+                    print("Debug: Failed to decode post with ID \(postID).")
+                }
+            }
+            
+            DispatchQueue.main.async {
+                self.feedPosts = tempFeedPosts.sorted { $0.timestamp > $1.timestamp }
+                print("Debug: Posts array updated. Total posts: \(self.feedPosts.count)")
+                completion()
+            }
+        }) { error in
+            print("Debug: Error fetching posts - \(error.localizedDescription)")
         }
     }
 
-    
-//    func fetchExternalUserProfileFeedPosts(userId: String) {
-//        let ref = Database.database().reference().child("users").child(userId).child("feedPosts")
-//
-//        ref.observeSingleEvent(of: .value) { [weak self] snapshot in
-//            guard let self = self else { return }
-//
-//            if !snapshot.exists() {
-//                print("DEBUG: No posts found for external user.")
-//                // You can choose to handle this case differently if needed.
-//                // For now, let's not add any external user posts if there are none.
-//            } else {
-//                guard let feedPostDict = snapshot.value as? [String: Any] else {
-//                    print("DEBUG: Snapshot value is not a valid dictionary")
-//                    return
-//                }
-//
-//                self.processFeedPosts(feedPostDict: feedPostDict)
-//
-//                // Notify that the fetch is complete
-//                // You might want to use a completion handler here if you need to perform any actions after fetching.
-//            }
-//        }
-//    }
-    
+
+
     func fetchExternalUserFeedPosts(userId: String, completion: @escaping () -> Void) {
-        let ref = Database.database().reference().child("users").child(userId).child("feedPosts")
+        let ref = Database.database().reference().child("users").child(userId).child("feedPosts2")
         ref.observeSingleEvent(of: .value) { snapshot in
             var fetchedPosts: [FeedPost] = []
             if let feedPostDict = snapshot.value as? [String: Any] {
@@ -312,7 +306,11 @@ class FeedViewModel: ObservableObject {
     func likePost(postId: String) {
         guard let userID = currentUserId else { return }
         
-        let postRef = Database.database().reference().child("posts").child(postId).child("likes").child(userID)
+        let postRef = Database.database().reference()
+            .child("feedPosts2")
+            .child(postId)
+            .child("comments")
+            .childByAutoId()
         postRef.setValue(true) { error, _ in
             if let error = error {
                 print("Error setting like: \(error.localizedDescription)")
@@ -325,7 +323,11 @@ class FeedViewModel: ObservableObject {
     func unlikePost(postId: String) {
         guard let userID = currentUserId else { return }
         
-        let postRef = Database.database().reference().child("posts").child(postId).child("likes").child(userID)
+        let postRef = Database.database().reference()
+            .child("feedPosts2")
+            .child(postId)
+            .child("comments")
+            .childByAutoId()
         postRef.removeValue { error, _ in
             if let error = error {
                 print("Error removing like: \(error.localizedDescription)")
@@ -335,12 +337,25 @@ class FeedViewModel: ObservableObject {
         }
     }
     
+    private func updateLocalPostLikeStatus(postId: String, liked: Bool) {
+        if let index = feedPosts.firstIndex(where: { $0.id.uuidString == postId }) {
+            DispatchQueue.main.async {
+                self.feedPosts[index].isLikedByCurrentUser = liked
+            }
+        }
+    }
+    
+    
     func toggleLike(for postId: String) {
         guard let userID = currentUserId else { return }
         guard let postIndex = feedPosts.firstIndex(where: { $0.id.uuidString == postId }) else { return }
 
         
-        let postRef = Database.database().reference().child("posts").child(postId).child("likes").child(userID)
+        let postRef = Database.database().reference()
+            .child("feedPosts2")
+            .child(postId)
+            .child("likes")
+            .childByAutoId()
         
         if feedPosts[postIndex].isLikedByCurrentUser {
             // If the post is currently liked, unlike it
@@ -371,7 +386,7 @@ class FeedViewModel: ObservableObject {
     private func updateFeedPost(postId: String, with values: [String: Any]) {
         guard let userID = Auth.auth().currentUser?.uid else { return }
         let firebaseRef = Database.database().reference()
-        let postRef = firebaseRef.child("users").child(userID).child("feedPosts").child(postId)
+        let postRef = firebaseRef.child("users").child(userID).child("feedPosts2").child(postId)
         
         postRef.updateChildValues(values) { (error, ref) in
             if let error = error {
@@ -382,60 +397,50 @@ class FeedViewModel: ObservableObject {
         }
     }
     
-    func addComment(to postId: String, comment: Comment) {
-        guard let userID = Auth.auth().currentUser?.uid else { return }
-        guard let postIndex = feedPosts.firstIndex(where: { $0.id.uuidString == postId }) else { return }
+    func addComment(to postId: String, comment: Comment, completion: @escaping () -> Void) {
+        guard let _ = Auth.auth().currentUser?.uid else { return }
         
-        // First, append the comment to the local copy of the post
-        if feedPosts[postIndex].comments == nil {
-            feedPosts[postIndex].comments = []
-        }
-        feedPosts[postIndex].comments?.append(comment)
-        
-        // Prepare the comment data for Firebase
+        let commentsRef = Database.database().reference()
+            .child("feedPosts2")
+            .child(postId)
+            .child("comments")
+            .childByAutoId()
         let commentData = comment.dictionaryRepresentation
-        let firebaseRef = Database.database().reference()
-        let commentsRef = firebaseRef.child("users").child(userID).child("feedPosts").child(postId).child("comments")
         
-        // Use childByAutoId() to add a new comment under the unique ID
-        let newCommentRef = commentsRef.childByAutoId()
-        newCommentRef.updateChildValues(commentData) { (error, ref) in
+        commentsRef.setValue(commentData) { [weak self] error, _ in
             if let error = error {
                 print("Error adding comment: \(error.localizedDescription)")
             } else {
-                // Optionally, you might want to fetch the updated posts here.
+                // Fetch the latest comments including the new one and call completion handler
+                self?.fetchComments(forPost: postId) { comments in
+                    DispatchQueue.main.async {
+                        if let index = self?.feedPosts.firstIndex(where: { $0.id.uuidString == postId }) {
+                            self?.feedPosts[index].comments = comments
+                            completion()
+                        }
+                    }
+                }
             }
         }
     }
-    
-//    func addComment(to postId: String, comment: Comment) {
-//        // Assuming userID is the ID of the currently logged-in user
-//        guard let userID = Auth.auth().currentUser?.uid else {
-//            print("Authentication required to comment.")
-//            return
-//        }
-//
-//        // Prepare the comment data
-//        let commentData: [String: Any] = [
-//            "id": comment.id,
-//            "text": comment.text,
-//            "authorId": comment.authorId,
-//            "timestamp": comment.timestamp.timeIntervalSince1970
-//        ]
-//
-//        // Reference to the specific post's comments in the database
-//        let commentsRef = Database.database().reference().child("feedPosts").child(postId).child("comments")
-//
-//        // Add the new comment
-//        let newCommentRef = commentsRef.childByAutoId()
-//        newCommentRef.setValue(commentData) { error, _ in
-//            if let error = error {
-//                print("Error adding comment: \(error.localizedDescription)")
-//            } else {
-//                print("Comment added successfully.")
-//            }
-//        }
-//    }
+
+    func fetchComments(forPost postId: String, completion: @escaping ([Comment]) -> Void) {
+        let commentsRef = Database.database().reference().child("feedPosts2").child(postId).child("comments")
+        commentsRef.observeSingleEvent(of: .value) { snapshot in
+            var comments = [Comment]()
+
+            for child in snapshot.children.allObjects as? [DataSnapshot] ?? [] {
+                guard let commentDict = child.value as? [String: Any],
+                      let comment = Comment(dictionary: commentDict) else { continue }
+                comments.append(comment)
+            }
+
+            DispatchQueue.main.async {
+                completion(comments)
+            }
+        }
+    }
+
     
     private func removeDuplicatesAndSort(posts: [FeedPost]) -> [FeedPost] {
         var seenIds = Set<UUID>()
@@ -452,7 +457,6 @@ class FeedViewModel: ObservableObject {
         }
     }
 }
-
 
 // Extend Comment to convert to a dictionary
 // Adjust this based on the actual properties of Comment

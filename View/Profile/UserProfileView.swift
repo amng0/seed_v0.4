@@ -70,8 +70,9 @@ struct UserProfileView: View {
                 }
             )
         }
+        .accentColor(.blue) // This sets the accent color for the navigation view which adapts to dark mode
     }
-
+    
     private func userProfileContent(userDetails: SessionUserDetails) -> some View {
         ScrollView {
             VStack {
@@ -196,6 +197,7 @@ struct UserProfileView: View {
                 Image("default_profile") // Default or placeholder image
                     .resizable()
             }
+
         }
         .scaledToFill()
         .frame(width: 100, height: 100)
@@ -250,6 +252,8 @@ struct UserProfileView: View {
 //            }
 //            .padding(.top)
         }
+        .foregroundColor(.primary) // Use primary color which adapts automatically to light/dark mode
+
     }
     
     func bioSection(bio: String?) -> some View {
@@ -264,9 +268,10 @@ struct UserProfileView: View {
     
     var friendsStats: some View {
         HStack {
-            Image(systemName: "person.3") // Use an icon for friends
-            Text("\(user?.friends ?? 0) Tribe Members") // Use actual data
+            Image(systemName: "person.3").foregroundColor(.primary) // Ensure the icon color adapts to dark mode
+            Text("\(user?.friends ?? 0) Tribe Members")
                 .font(.subheadline)
+                .foregroundColor(.primary) // Use primary color for text
         }
     }
 }

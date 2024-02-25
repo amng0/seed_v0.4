@@ -51,7 +51,7 @@ struct FeedView: View {
             .refreshable {
                 isFetchCompleted = false // Reset before refreshing
                 viewModel.fetchFeedPostsFromFollowingUsers {
-                    viewModel.fetchFeedPosts() {
+                    viewModel.fetchFeedPostsFromFollowingUsers() {
                         isFetchCompleted = true // Mark as completed after fetch
                     }
                 }
@@ -81,7 +81,7 @@ struct FeedView: View {
         .onAppear {
             isFetchCompleted = false // Reset before fetching
             viewModel.fetchFeedPostsFromFollowingUsers {
-                viewModel.fetchFeedPosts() {
+                viewModel.fetchFeedPostsFromFollowingUsers() {
                     isFetchCompleted = true // Mark as completed after fetch
                 }
             }
@@ -89,7 +89,7 @@ struct FeedView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshFeedNotification"))) { _ in
             isFetchCompleted = false // Reset before fetching
             viewModel.fetchFeedPostsFromFollowingUsers {
-                viewModel.fetchFeedPosts() {
+                viewModel.fetchFeedPostsFromFollowingUsers() {
                     isFetchCompleted = true // Mark as completed after fetch
                 }
             }

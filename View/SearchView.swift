@@ -9,8 +9,6 @@ import SwiftUI
 
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
-    //@State var userModel: User?  // Now using the User model
-
     @State private var searchQuery = ""
     @FocusState private var isInputActive: Bool  // Define a focus state
 
@@ -27,9 +25,10 @@ struct SearchView: View {
                         .onAppear {
                             isInputActive = true  // Activate the text field when the view appears
                         }
+                        .foregroundColor(.primary) // Use primary color for text which adapts automatically
                 }
                 .padding()
-                .background(Color(.systemGray6))
+                .background(Color(UIColor.systemGray6)) // Use UIColor to adapt the color automatically
                 .cornerRadius(10)
                 .shadow(radius: 5)
                 .padding(.horizontal)
@@ -44,22 +43,27 @@ struct SearchView: View {
                     NavigationLink(destination: ExternalUserProfileView(sessionUser: user)) {
                         HStack {
                             Circle()
-                                .fill(Color.blue)
+                                .fill(Color.blue) // Consider using .accentColor or another adaptive color
                                 .frame(width: 40, height: 40)
-                                .overlay(Text(String(user.firstName.prefix(1)) + String(user.lastName.prefix(1))))
+                                .overlay(Text(String(user.firstName.prefix(1)) + String(user.lastName.prefix(1)))
+                                    .foregroundColor(.white)) // Ensure contrast is readable
                             VStack(alignment: .leading) {
                                 Text(user.firstName + " " + user.lastName)
                                     .font(.headline)
+                                    .foregroundColor(.primary) // Use primary color which adapts automatically
                                 Text(user.email)
                                     .font(.subheadline)
+                                    .foregroundColor(.secondary) // Use secondary color which adapts automatically
                             }
                         }
                     }
                 }
             }
             .navigationBarTitle("User Search", displayMode: .inline)
-            .background(Color.white)
+            .background(Color(.systemBackground)) // Use system background color
         }
         .navigationViewStyle(StackNavigationViewStyle())
+        .accentColor(.blue) // Use this to set a global tint color that adapts to dark mode
     }
 }
+

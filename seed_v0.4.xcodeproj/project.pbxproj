@@ -60,7 +60,6 @@
 		A3C1F8BA2A73D2BA00B016E8 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C1F8B92A73D2BA00B016E8 /* AuthService.swift */; };
 		A3C1F8BC2A73D8BB00B016E8 /* UserService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C1F8BB2A73D8BB00B016E8 /* UserService.swift */; };
 		A3C1F8C02A73DACC00B016E8 /* GoalPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C1F8BF2A73DACC00B016E8 /* GoalPost.swift */; };
-		A3C1F8C42A73DC2800B016E8 /* GoalPostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C1F8C32A73DC2800B016E8 /* GoalPostService.swift */; };
 		A3C28E4C2B5C404000F00AD5 /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C28E4B2B5C404000F00AD5 /* NotificationsView.swift */; };
 		A3C28E4E2B5C41B800F00AD5 /* EditProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C28E4D2B5C41B800F00AD5 /* EditProfileView.swift */; };
 		A3C28E502B5C5B8600F00AD5 /* ExternalUserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C28E4F2B5C5B8600F00AD5 /* ExternalUserViewModel.swift */; };
@@ -169,7 +168,6 @@
 		A3C1F8B92A73D2BA00B016E8 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		A3C1F8BB2A73D8BB00B016E8 /* UserService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserService.swift; sourceTree = "<group>"; };
 		A3C1F8BF2A73DACC00B016E8 /* GoalPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalPost.swift; sourceTree = "<group>"; };
-		A3C1F8C32A73DC2800B016E8 /* GoalPostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalPostService.swift; sourceTree = "<group>"; };
 		A3C28E4B2B5C404000F00AD5 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		A3C28E4D2B5C41B800F00AD5 /* EditProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileView.swift; sourceTree = "<group>"; };
 		A3C28E4F2B5C5B8600F00AD5 /* ExternalUserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalUserViewModel.swift; sourceTree = "<group>"; };
@@ -508,7 +506,6 @@
 			children = (
 				A3C1F8B92A73D2BA00B016E8 /* AuthService.swift */,
 				A3C1F8BB2A73D8BB00B016E8 /* UserService.swift */,
-				A3C1F8C32A73DC2800B016E8 /* GoalPostService.swift */,
 				A35C0ED12AD77563004A1987 /* NotifcationService.swift */,
 				A33087112ADE2130004EACEC /* StatPostService.swift */,
 				A3F203322B267C0100DFBC8D /* RegistrationService.swift */,
@@ -791,7 +788,6 @@
 				A35C0ED22AD77563004A1987 /* NotifcationService.swift in Sources */,
 				A3F329F62A72A36800BA754F /* LoginView.swift in Sources */,
 				A33087102ADE203D004EACEC /* Stat.swift in Sources */,
-				A3C1F8C42A73DC2800B016E8 /* GoalPostService.swift in Sources */,
 				A3B5E8892B49E07F00C7B33B /* GoalCalculations.swift in Sources */,
 				A3F32A162A72C10B00BA754F /* Constants.swift in Sources */,
 				A35C0ED02AD7751F004A1987 /* NotificationController.swift in Sources */,
