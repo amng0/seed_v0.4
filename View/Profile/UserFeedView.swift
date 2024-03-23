@@ -21,7 +21,7 @@ struct UserFeedView: View {
                 }
             }
             .onAppear {
-                viewModel.fetchFeedPosts(){
+                viewModel.fetchPostsForLoggedInUser(){
                 }
             }
         }

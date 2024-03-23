@@ -10,8 +10,11 @@
 
 import SwiftUI
 
+// Defines the main view for the feed in the app.
 struct FeedView: View {
+    // ViewModel that manages the data for the feed.
     @StateObject var viewModel = FeedViewModel()
+    // State variables to manage UI flow and interactions.
     @State private var isShowingNotifications = false
     @State private var showingCreateGoalView = false
     @State private var isFetchCompleted = false
@@ -20,27 +23,22 @@ struct FeedView: View {
         NavigationView {
             ScrollView {
                 if viewModel.feedPosts.isEmpty && isFetchCompleted {
-                    // Split the message into two parts
-                    let messagePart1 = Text("Welcome to Seed.\n\n")
-                        .foregroundColor(.gray)
-                    
-                    let messagePart2 = Text("Create a new goal.")
-                        .underline()
-                        .foregroundColor(.gray)
-                    
-                    let combinedMessage = messagePart1 + messagePart2
-                    
-                    // Invisible NavigationLink to trigger programmatically
-                    NavigationLink(destination: CreateUpcomingGoalsView(initialGoalType: .physical), isActive: $showingCreateGoalView) {
-                        EmptyView()
+                    // Use VStack for stacking text views vertically.
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Welcome to Seed.\n\n")
+                            .foregroundColor(.gray)
+                        Text("Create a new goal.")
+                            .underline()
+                            .foregroundColor(.gray)
+                            .onTapGesture {
+                                self.showingCreateGoalView = true // Triggers navigation to create a new goal.
+                            }
                     }
-                    // Use the combined message with onTapGesture
-                    combinedMessage
-                        .padding()
-                        .onTapGesture {
-                            self.showingCreateGoalView = true
-                        }
+                    .padding()
+                    // NavigationLink to trigger programmatically for creating a new goal.
+                    NavigationLink("", destination: CreateUpcomingGoalsView(initialGoalType: .physical), isActive: $showingCreateGoalView)
                 } else {
+                    // Displays feed posts using a lazy stack for performance.
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.feedPosts, id: \.id) { post in
                             FeedPostView(viewModel: viewModel, post: post, userDetails: post.userDetails)
@@ -49,52 +47,33 @@ struct FeedView: View {
                 }
             }
             .refreshable {
-                isFetchCompleted = false // Reset before refreshing
-                viewModel.fetchFeedPostsFromFollowingUsers {
-                    viewModel.fetchFeedPostsFromFollowingUsers() {
-                        isFetchCompleted = true // Mark as completed after fetch
-                    }
-                }
+                // Refresh action to reload feed posts.
+                refreshFeed()
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-//                ToolbarItem(placement: .navigationBarLeading) {
-//                    Image(systemName: "line.horizontal.3")
-//                }
                 ToolbarItem(placement: .principal) {
+                    // Displays the app logo in the navigation bar.
                     Image("seedlogo")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 30, height: 30)
                 }
-//                ToolbarItem(placement: .navigationBarTrailing) {
-//                    NavigationLink(destination: NotificationsView(), isActive: $isShowingNotifications) {
-//                        Button(action: {
-//                            isShowingNotifications = true
-//                        }) {
-//                            Image(systemName: "bell")
-//                        }
-//                    }
-//                }
             }
         }
         .onAppear {
-            isFetchCompleted = false // Reset before fetching
-            viewModel.fetchFeedPostsFromFollowingUsers {
-                viewModel.fetchFeedPostsFromFollowingUsers() {
-                    isFetchCompleted = true // Mark as completed after fetch
-                }
-            }
+            refreshFeed() // Fetches feed posts when the view appears.
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshFeedNotification"))) { _ in
-            isFetchCompleted = false // Reset before fetching
-            viewModel.fetchFeedPostsFromFollowingUsers {
-                viewModel.fetchFeedPostsFromFollowingUsers() {
-                    isFetchCompleted = true // Mark as completed after fetch
-                }
-            }
+            refreshFeed() // Listens for a notification to refresh the feed.
+        }
+    }
+    
+    /// Refreshes the feed by fetching new posts.
+    private func refreshFeed() {
+        isFetchCompleted = false // Indicates the start of a fetch operation.
+        viewModel.fetchFeedPostsFromFollowingUsers {
+            isFetchCompleted = true // Indicates the completion of the fetch operation.
         }
     }
 }
-
-

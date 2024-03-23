@@ -20,7 +20,7 @@ struct ExternalUserFeedView: View {
                 }
             }
             .onAppear {
-                viewModel.fetchExternalUserFeedPosts(userId: userId) {
+                viewModel.fetchExternalUserFeedPosts(userId: userId) {_ in
                     // This closure can be used if you need to do something right after fetching
                 }
             }

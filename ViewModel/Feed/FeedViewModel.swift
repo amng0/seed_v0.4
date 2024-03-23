@@ -40,12 +40,17 @@ class FeedViewModel: ObservableObject {
     }
     
     func uploadFeedPost(with uid: String, feedPost: FeedPost){
+        guard let currentUser = Auth.auth().currentUser else {
+            print("No logged-in user.")
+            return
+        }
         let firebaseRef = Database.database().reference()
         let data = try? JSONEncoder().encode(feedPost)
         
         if let data = data, let jsonDict = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
             
-            let feedPostRef = firebaseRef.child("feedPosts2").child("\(feedPost.id)")
+            let userRef = Database.database().reference().child("users").child(currentUser.uid)
+            let feedPostRef = userRef.child("feedPosts3").child("\(feedPost.id)")
             
             feedPostRef.updateChildValues(jsonDict) { (error, ref) in
                 if let error = error {
@@ -54,6 +59,8 @@ class FeedViewModel: ObservableObject {
             }
         }
     }
+    
+    // MARK: Fetching Feed Post Functions
     
     func fetchFeedPosts(completion: @escaping () -> Void) {
         guard let userID = Auth.auth().currentUser?.uid else {
@@ -112,108 +119,78 @@ class FeedViewModel: ObservableObject {
         }
     }
 
-    func fetchFeedPostsFromFollowingUsers(completion: @escaping () -> Void) {
-        guard let currentUserUID = Auth.auth().currentUser?.uid else {
-            print("DEBUG: Current user is not authenticated.")
-            return
-        }
+    
+//    func fetchFeedPostsFromFollowingUsers(completion: @escaping () -> Void) {
+//        guard let currentUserUID = Auth.auth().currentUser?.uid else {
+//            // Handle the case when the current user is not authenticated
+//            print("DEBUG: Current user is not authenticated.")
+//            return
+//        }
+//
+//        // Reference to the logged-in user's following node
+//        let loggedInUserFollowingRef = Database.database().reference().child("users").child(currentUserUID).child("following")
+//
+//        loggedInUserFollowingRef.observeSingleEvent(of: .value) { [weak self] snapshot in
+//            guard let self = self else { return }
+//
+//            if snapshot.exists() {
+//                // Expecting the following node to be a dictionary with UIDs as keys
+//                if let followingDict = snapshot.value as? [String: Bool] {
+//                    let followingUIDs = followingDict.keys
+//                    print("DEBUG: Found following UIDs: \(followingUIDs)")
+//
+//                    // Create a dispatch group to handle multiple asynchronous calls
+//                    let dispatchGroup = DispatchGroup()
+//
+//                    for followingUID in followingUIDs {
+//                        print("DEBUG: Fetching feed posts for user with UID: \(followingUID)")
+//
+//                        // Enter the dispatch group before making the fetchExternalUserPosts call
+//                        dispatchGroup.enter()
+//
+//                        // Fetch feed posts for each user the current user is following
+//                        self.fetchExternalUserFeedPosts(userId: followingUID) {
+//                            // Leave the dispatch group when the fetchExternalUserPosts call is complete
+//                            dispatchGroup.leave()
+//                        }
+//                    }
+//
+//                    // Notify when all fetchExternalUserPosts calls are complete
+//                    dispatchGroup.notify(queue: .main) {
+//                        // Apply deduplication and sorting after all posts are fetched
+//                        self.feedPosts = self.removeDuplicatesAndSort(posts: self.feedPosts)
+//                        print("DEBUG: All fetchExternalUserPosts calls are complete. Feed posts deduplicated and sorted.")
+//                        completion() // Call the completion handler here, after all operations are complete.
+//                        print("Feed posts updated with \(self.feedPosts.count) posts.")
+//
+//                    }
+//                } else {
+//                    print("DEBUG: Following UIDs not in the expected format.")
+//                    completion() // Call completion here if the format isn't as expected.
+//                }
+//            } else {
+//                print("DEBUG: No following UIDs found.")
+//                completion() // Call completion here if no following UIDs are found.
+//            }
+//        }
+//    }
 
-        print("DEBUG: Fetching feed posts from following users for user \(currentUserUID)")
-
-        let loggedInUserFollowingRef = Database.database().reference().child("users").child(currentUserUID).child("following")
-
-        loggedInUserFollowingRef.observeSingleEvent(of: .value) { [weak self] snapshot in
-            guard let self = self else { return }
-
-            if snapshot.exists(), let followingDict = snapshot.value as? [String: Bool] {
-                let followingUIDs = followingDict.keys
-
-                if followingUIDs.isEmpty {
-                    print("DEBUG: The user is not following anyone.")
-                    completion()
-                    return
-                }
-
-                print("DEBUG: Found \(followingUIDs.count) users that the current user is following.")
-
-                let dispatchGroup = DispatchGroup()
-
-                for followingUID in followingUIDs {
-                    print("DEBUG: Fetching posts for user \(followingUID)")
-                    dispatchGroup.enter()
-                    let ref = Database.database().reference().child("users").child(followingUID).child("goalPosts")
-                    ref.observeSingleEvent(of: .value) { snapshot in
-                        if snapshot.exists() {
-                            if let feedPostDict = snapshot.value as? [String: Any] {
-                                print("DEBUG: Found posts for user \(followingUID)")
-                                self.processFeedPosts(feedPostDict: feedPostDict)
-                            } else {
-                                print("DEBUG: Posts for user \(followingUID) are not in the expected format.")
-                            }
-                        } else {
-                            print("DEBUG: No posts found for user \(followingUID)")
-                        }
-                        dispatchGroup.leave()
-                    }
-                }
-
-                dispatchGroup.notify(queue: .main) {
-                    print("DEBUG: Finished fetching posts from all following users.")
-                    self.feedPosts = self.removeDuplicatesAndSort(posts: self.feedPosts)
-                    completion()
-                }
-            } else {
-                print("DEBUG: The 'following' node is empty or does not exist for the current user.")
-                completion()
-            }
-        }
-    }
-
-
-
-    func fetchExternalUserPosts(userId: String, completion: @escaping () -> Void) {
-        let ref = Database.database().reference().child("users").child(userId).child("feedPosts2")
-        print("DEBUG: Fetching feed posts for external user from Firebase path: \(ref)")
-
-        ref.observeSingleEvent(of: .value) { [weak self] snapshot in
-            guard let self = self else { return }
-
-            if !snapshot.exists() {
-                print("DEBUG: No posts found for external user.")
-                // You can choose to handle this case differently if needed.
-                // For now, let's not add any external user posts if there are none.
-            } else {
-                guard let feedPostDict = snapshot.value as? [String: Any] else {
-                    print("DEBUG: Snapshot value is not a valid dictionary")
-                    completion() // Call completion to notify that the fetch is complete
-                    return
-                }
-
-                self.processFeedPosts(feedPostDict: feedPostDict)
-
-                // Call completion to notify that the fetch is complete
-                completion()
-            }
-        }
-    }
     
     func fetchPostsForLoggedInUser(completion: @escaping () -> Void) {
-        guard let currentUserID = Auth.auth().currentUser?.uid else {
-            print("Debug: User not logged in")
+        guard let currentUser = Auth.auth().currentUser else {
+            print("No logged-in user.")
             return
         }
-        
-        print("Debug: Fetching posts for user ID \(currentUserID)")
-        
-        // Reference to the logged-in user's posts node
-        let userPostsRef = Database.database().reference().child("users").child(currentUserID).child("feedPosts2")
-        
+        print("Debug: Fetching posts for user ID \(currentUser)")
+
+        // Adjusted reference to the logged-in user's posts in feedPosts2 node
+        let userPostsRef = Database.database().reference().child("users").child(currentUser.uid).child("feedPosts3")
         userPostsRef.observeSingleEvent(of: .value, with: { [weak self] snapshot in
             guard let self = self else { return }
-            
+
             // Clear existing posts to avoid duplication
             self.feedPosts.removeAll()
-            
+
             if !snapshot.exists() {
                 print("Debug: No posts found for the logged-in user.")
                 DispatchQueue.main.async {
@@ -221,7 +198,7 @@ class FeedViewModel: ObservableObject {
                 }
                 return
             }
-            
+
             guard let postsDict = snapshot.value as? [String: Any] else {
                 print("Debug: Snapshot is not in the expected format.")
                 DispatchQueue.main.async {
@@ -229,9 +206,9 @@ class FeedViewModel: ObservableObject {
                 }
                 return
             }
-            
+
             print("Debug: Found \(postsDict.count) posts for the logged-in user.")
-            
+
             var tempFeedPosts: [FeedPost] = []
             for (postID, postData) in postsDict {
                 if let postDataDict = postData as? [String: Any],
@@ -243,7 +220,7 @@ class FeedViewModel: ObservableObject {
                     print("Debug: Failed to decode post with ID \(postID).")
                 }
             }
-            
+
             DispatchQueue.main.async {
                 self.feedPosts = tempFeedPosts.sorted { $0.timestamp > $1.timestamp }
                 print("Debug: Posts array updated. Total posts: \(self.feedPosts.count)")
@@ -253,11 +230,60 @@ class FeedViewModel: ObservableObject {
             print("Debug: Error fetching posts - \(error.localizedDescription)")
         }
     }
+    
+    func fetchFeedPostsFromFollowingUsers(completion: @escaping () -> Void) {
+        guard let currentUserUID = Auth.auth().currentUser?.uid else {
+            // Handle the case when the current user is not authenticated
+            print("DEBUG: Current user is not authenticated.")
+            completion()
+            return
+        }
 
+        let loggedInUserFollowingRef = Database.database().reference().child("users").child(currentUserUID).child("following")
+        
+        loggedInUserFollowingRef.observeSingleEvent(of: .value) { [weak self] snapshot in
+            guard let self = self else { return }
 
+            if let followingDict = snapshot.value as? [String: Bool] {
+                let followingUIDs = followingDict.keys
+                
+                if followingUIDs.isEmpty {
+                    // Immediately call completion if there are no users to fetch posts from
+                    DispatchQueue.main.async {
+                        completion()
+                    }
+                    return
+                }
 
-    func fetchExternalUserFeedPosts(userId: String, completion: @escaping () -> Void) {
-        let ref = Database.database().reference().child("users").child(userId).child("feedPosts2")
+                let dispatchGroup = DispatchGroup()
+                var allFetchedPosts: [FeedPost] = [] // Accumulate all posts here
+                
+                for followingUID in followingUIDs {
+                    dispatchGroup.enter()
+                    
+                    self.fetchExternalUserFeedPosts(userId: followingUID) { fetchedPosts in
+                        allFetchedPosts.append(contentsOf: fetchedPosts) // Aggregate fetched posts
+                        dispatchGroup.leave()
+                    }
+                }
+
+                dispatchGroup.notify(queue: .main) {
+                    // Apply deduplication and sorting after all posts are fetched
+                    self.feedPosts = self.removeDuplicatesAndSort(posts: allFetchedPosts)
+                    print("DEBUG: All fetchExternalUserPosts calls are complete. Feed posts deduplicated and sorted.")
+                    completion() // Call the completion handler here, after all operations are complete.
+                }
+            } else {
+                print("DEBUG: No following UIDs found or not in expected format.")
+                DispatchQueue.main.async {
+                    completion()
+                }
+            }
+        }
+    }
+
+    func fetchExternalUserFeedPosts(userId: String, completion: @escaping ([FeedPost]) -> Void) {
+        let ref = Database.database().reference().child("users").child(userId).child("feedPosts3")
         ref.observeSingleEvent(of: .value) { snapshot in
             var fetchedPosts: [FeedPost] = []
             if let feedPostDict = snapshot.value as? [String: Any] {
@@ -269,15 +295,33 @@ class FeedViewModel: ObservableObject {
                     }
                 }
             }
-            DispatchQueue.main.async {
-                self.externalUserPosts = fetchedPosts.sorted { $0.timestamp > $1.timestamp }
-                completion()
-            }
+            completion(fetchedPosts) // Return the fetched posts via the completion handler
         }
     }
 
 
-
+    
+//Properly funcitoning but commented out for FeedView following testing
+//    func fetchExternalUserFeedPosts(userId: String, completion: @escaping () -> Void) {
+//        let ref = Database.database().reference().child("users").child(userId).child("feedPosts3")
+//        ref.observeSingleEvent(of: .value) { snapshot in
+//            var fetchedPosts: [FeedPost] = []
+//            if let feedPostDict = snapshot.value as? [String: Any] {
+//                for (_, postData) in feedPostDict {
+//                    if let postDataDict = postData as? [String: Any],
+//                       let postDataJson = try? JSONSerialization.data(withJSONObject: postDataDict),
+//                       let feedPost = try? JSONDecoder().decode(FeedPost.self, from: postDataJson) {
+//                        fetchedPosts.append(feedPost)
+//                    }
+//                }
+//            }
+//            DispatchQueue.main.async {
+//                self.externalUserPosts = fetchedPosts.sorted { $0.timestamp > $1.timestamp }
+//                completion()
+//            }
+//        }
+//    }
+    
     private func processFeedPosts(feedPostDict: [String: Any]) {
         var tempFeedPosts = [FeedPost]()
         for (postId, postData) in feedPostDict {
@@ -297,6 +341,7 @@ class FeedViewModel: ObservableObject {
         }
     }
     
+    // MARK: Feed Post Interactions
     
     private func updateFeedPost(postId: String, post: FeedPost) {
         guard let userID = Auth.auth().currentUser?.uid else { return }
@@ -307,7 +352,7 @@ class FeedViewModel: ObservableObject {
         guard let userID = currentUserId else { return }
         
         let postRef = Database.database().reference()
-            .child("feedPosts2")
+            .child("feedPosts3")
             .child(postId)
             .child("comments")
             .childByAutoId()
@@ -324,7 +369,7 @@ class FeedViewModel: ObservableObject {
         guard let userID = currentUserId else { return }
         
         let postRef = Database.database().reference()
-            .child("feedPosts2")
+            .child("feedPosts3")
             .child(postId)
             .child("comments")
             .childByAutoId()
@@ -352,7 +397,7 @@ class FeedViewModel: ObservableObject {
 
         
         let postRef = Database.database().reference()
-            .child("feedPosts2")
+            .child("feedPosts3")
             .child(postId)
             .child("likes")
             .childByAutoId()
@@ -386,7 +431,7 @@ class FeedViewModel: ObservableObject {
     private func updateFeedPost(postId: String, with values: [String: Any]) {
         guard let userID = Auth.auth().currentUser?.uid else { return }
         let firebaseRef = Database.database().reference()
-        let postRef = firebaseRef.child("users").child(userID).child("feedPosts2").child(postId)
+        let postRef = firebaseRef.child("users").child(userID).child("feedPosts3").child(postId)
         
         postRef.updateChildValues(values) { (error, ref) in
             if let error = error {
@@ -401,7 +446,7 @@ class FeedViewModel: ObservableObject {
         guard let _ = Auth.auth().currentUser?.uid else { return }
         
         let commentsRef = Database.database().reference()
-            .child("feedPosts2")
+            .child("feedPosts3")
             .child(postId)
             .child("comments")
             .childByAutoId()
@@ -425,7 +470,7 @@ class FeedViewModel: ObservableObject {
     }
 
     func fetchComments(forPost postId: String, completion: @escaping ([Comment]) -> Void) {
-        let commentsRef = Database.database().reference().child("feedPosts2").child(postId).child("comments")
+        let commentsRef = Database.database().reference().child("feedPosts3").child(postId).child("comments")
         commentsRef.observeSingleEvent(of: .value) { snapshot in
             var comments = [Comment]()
 
